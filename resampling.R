@@ -65,4 +65,3 @@ for (i in 1:k) {
 }
 
 apply(MSE_test, 2, mean) # Apply to columns
-
