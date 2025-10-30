@@ -7,6 +7,11 @@ library(factoextra)
 hist(rowMeans(is.na(data)))
 barplot(colMeans(is.na(data)), las=2)
 
+# Replace them (if applicable)
+if (any(is.na(data))) {
+  data[is.na(data)] <- rowMeans(data, na.rm = TRUE) # Impute with row means
+}
+
 # Look at data
 boxplot(data, las=2, col="darkblue")
 
