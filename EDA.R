@@ -21,5 +21,10 @@ levels(data$health)
 # They are correctly ordered!
 
 # Outliers
+boxplot(data[, sapply(data, is.numeric)], 
+        main = "Outliers",
+        ylab = "Values",
+        col = "red")
+
 # Linear models
 # Bootstrap?
