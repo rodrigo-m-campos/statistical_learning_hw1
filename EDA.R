@@ -9,6 +9,23 @@ library(bootstrap)
 #data(DoctorContacts)
 data = DoctorContacts
 
+# What are the variables?
+# lc:  log(coinsurance rate + 1), where coinsurance rate ranges from 0 to 100 (the percentage the patient pays).
+# idp:  Binary indicator for whether the person has an individual deductible plan. (Has to pay for going to the doctor).
+# lpi:  log(annual participation incentive payment + 1) (or 0 if no payment). (Paid to go).
+# fmde:  log(max(medical deductible expenditure)) if IDP=1 and MDE > 1, else 0. How much someone must spend before insurance kicks in.
+# physlim:  Binary variable indicating if the person has a physical limitation.
+# ndisease:  Number of chronic diseases.
+# health:  Categorical self-rated health: excellent, good, fair, poor.
+# linc:  log(annual family income).
+# lfam:  log(family size).
+# educdec:  Years of schooling of the household head.
+# age:  Exact age in years.
+# sex:  sex (male/female).
+# child:  Binary (TRUE if age < 18, else FALSE).
+# black:  Binary (TRUE if household head is Black, else FALSE).
+
+
 # Check for NAs
 # hist(rowMeans(is.na(data)))
 barplot(colMeans(is.na(data)), las=2)
@@ -155,4 +172,34 @@ ggplot(plot_data_3, aes(x = PC3, y = Target)) +
   labs(x = "Principal Component 3",
        y = "mdu") +
   theme_minimal()
+
+
+# Scale
+data_num_scaled = scale(data_num)
+cor(data_num_scaled)
+data_num_fa = data_num_scaled[,-1]
+# Not too correlated, so factor analysis might not work that well, but we still try it!
+# We start simple, just 2 factors (Bartlett should yield weighted least-squares)
+fa_2 = factanal(data_num_fa, 2, rotation = "varimax", scores = "Bartlett")
+fa_2
+loadings(fa_2)
+# 0.4 cumulative, not much...
+# We try 3 factors
+fa_3 = factanal(data_num_fa, 3, rotation = "varimax", scores = "Bartlett")
+fa_3
+loadings(fa_3)
+# Still not much... How about 4?
+fa_4 = factanal(data_num_fa, 4, rotation = "varimax", scores = "Bartlett")
+fa_4
+loadings(fa_4)
+# Not a big difference, we try sticking with 3
+
+# Observe the 3 factors
+par(mfrow=c(3,1))
+barplot(fa_3$loadings[,1], names=F, las=2, col="darkblue", ylim = c(-1, 1))
+barplot(fa_3$loadings[,2], names=F, las=2, col="darkblue", ylim = c(-1, 1))
+barplot(fa_3$loadings[,3], las=2, col="darkblue", ylim = c(-1, 1))
+
+# FACTOR INTERPRETATION
+# 
 
