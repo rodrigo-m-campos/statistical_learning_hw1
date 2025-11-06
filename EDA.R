@@ -64,7 +64,7 @@ prediction3 = predict(lin_fit_3, newdata = test_set)
 mse1 = mean((prediction1 - test_set$mdu)^2)
 mse2 = mean((prediction2 - test_set$mdu)^2)
 mse3 = mean((prediction3 - test_set$mdu)^2)
-# Pretty bad...
+# Pretty, pretty, pretty, pretty bad...
 
 # Let us try with k-fold:
 k = 10
