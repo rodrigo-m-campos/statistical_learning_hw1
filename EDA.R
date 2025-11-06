@@ -2,7 +2,10 @@
 library(Ecdat)
 library(ggplot2)
 library(GGally)
+library(factoextra)
 library(e1071)
+library(boot)
+library(bootstrap)
 #data(DoctorContacts)
 data = DoctorContacts
 
@@ -94,4 +97,56 @@ for (i in 1:k) {
 apply(MSE_test, 2, mean) # Apply to columns
 
 
-# Bootstrap?
+# Bootstrap
+# Does the number of visits depend on the number of diseases?
+B = 1000
+MeanDiff.boot = replicate(B, mean(sample(data$mdu, replace=TRUE)) - mean(sample(data$ndisease, replace=TRUE)))
+hist(MeanDiff.boot)
+sd(MeanDiff.boot)
+# 95% Percentile CI
+quantile(MedianDiff.boot, c(.025, .975))
+# Doesn't seem significant
+
+# PCA
+# We remove mdu
+data_num_pca = data_num[-1]
+pca = prcomp(data_num_pca, scale=T)
+summary(pca)
+
+# EIGENVALUES!
+eigen(R)
+
+# How many components do we take?
+screeplot(pca,main="Screeplot",col="blue",type="barplot", pch=19)
+
+# Same thing with the other package
+fviz_screeplot(pca, addlabels = TRUE)
+
+# First component
+barplot(pca$rotation[,1], las=2, col="darkblue")
+
+# How much does each variable contribute?
+fviz_contrib(pca, choice = "var", axes = 1)
+
+plot_data_1 = data.frame(PC1 = pca$x[,1], Target = data$mdu)
+ggplot(plot_data_1, aes(x = PC1, y = Target)) +
+  geom_point() +
+  labs(x = "Principal Component 1",
+       y = "mdu") +
+  theme_minimal()
+
+plot_data_2 = data.frame(PC2 = pca$x[,2], Target = data$mdu)
+ggplot(plot_data_2, aes(x = PC2, y = Target)) +
+  geom_point() +
+  labs(x = "Principal Component 2",
+       y = "mdu") +
+  theme_minimal()
+
+plot_data_3 = data.frame(PC3 = pca$x[,3], Target = data$mdu)
+ggplot(plot_data_3, aes(x = PC3, y = Target)) +
+  geom_point() +
+  labs(x = "Principal Component 3",
+       y = "mdu") +
+  theme_minimal()
+
+
