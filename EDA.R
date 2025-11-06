@@ -36,7 +36,11 @@ boxplot(data[, sapply(data, is.numeric)],
 data_num = data[,-c(3, 6, 8, 13, 14, 15)]
 R = cor(data_num)
 ggcorr(data_num, label = T)
-# It seems there are no strong correlations with mdu. Biggest one is ndisiease.
+# It seems there are no strong correlations with mdu. Biggest one is ndisease.
+
+# Let us look at all variable relations (mostly with mdu)
+pairs(data)
+# Doesn't give many ideas. We can try looking at just the numerical values.
 
 featurePlot(x = data_num[-1], y = data_num$mdu,
             plot = "scatter")
@@ -128,6 +132,7 @@ barplot(pca$rotation[,1], las=2, col="darkblue")
 # How much does each variable contribute?
 fviz_contrib(pca, choice = "var", axes = 1)
 
+# First PC
 plot_data_1 = data.frame(PC1 = pca$x[,1], Target = data$mdu)
 ggplot(plot_data_1, aes(x = PC1, y = Target)) +
   geom_point() +
@@ -135,6 +140,7 @@ ggplot(plot_data_1, aes(x = PC1, y = Target)) +
        y = "mdu") +
   theme_minimal()
 
+# Second PC
 plot_data_2 = data.frame(PC2 = pca$x[,2], Target = data$mdu)
 ggplot(plot_data_2, aes(x = PC2, y = Target)) +
   geom_point() +
@@ -142,11 +148,11 @@ ggplot(plot_data_2, aes(x = PC2, y = Target)) +
        y = "mdu") +
   theme_minimal()
 
+# Third PC
 plot_data_3 = data.frame(PC3 = pca$x[,3], Target = data$mdu)
 ggplot(plot_data_3, aes(x = PC3, y = Target)) +
   geom_point() +
   labs(x = "Principal Component 3",
        y = "mdu") +
   theme_minimal()
-
 
