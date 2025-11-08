@@ -3,9 +3,12 @@ library(Ecdat)
 library(ggplot2)
 library(GGally)
 library(factoextra)
+library(cluster)
+library(mclust)
 library(e1071)
 library(boot)
 library(bootstrap)
+library(caret)
 #data(DoctorContacts)
 data = DoctorContacts
 
@@ -40,7 +43,8 @@ summary(data)
 data$sex = factor(data$sex, levels = c('male', 'female'), labels = c(0, 1))
 
 levels(data$health)
-# They are correctly ordered!
+# We can change the order
+data$health = factor(data$health, levels = c("poor", "fair", "good", "excellent"))
 
 # Outliers
 boxplot(data[, sapply(data, is.numeric)], 
@@ -51,6 +55,12 @@ boxplot(data[, sapply(data, is.numeric)],
 # Look at correlation
 # We need numerical values ONLY
 data_num = data[,-c(3, 6, 8, 13, 14, 15)]
+data_num$health = as.numeric(data$health)
+data_num$physlim = as.numeric(data$physlim)
+data_num$child  = as.numeric(data$child)
+data_num$black  = as.numeric(data$black)
+data_num$sex = as.numeric(data$sex) - 1 # To get 0 and 1
+data_num$idp = as.numeric(data$idp)
 R = cor(data_num)
 ggcorr(data_num, label = T)
 # It seems there are no strong correlations with mdu. Biggest one is ndisease.
@@ -125,13 +135,21 @@ MeanDiff.boot = replicate(B, mean(sample(data$mdu, replace=TRUE)) - mean(sample(
 hist(MeanDiff.boot)
 sd(MeanDiff.boot)
 # 95% Percentile CI
-quantile(MedianDiff.boot, c(.025, .975))
+quantile(MeanDiff.boot, c(.025, .975))
 # Doesn't seem significant
+
+# Scale
+data_num_scaled = as.data.frame(scale(data_num[1:10]))
+data_num_scaled$physlim = data_num$physlim
+data_num_scaled$child = data_num$child
+data_num_scaled$black = data_num$black
+data_num_scaled$sex = data_num$sex
+data_num_scaled$idp = data_num$idp
 
 # PCA
 # We remove mdu
-data_num_pca = data_num[-1]
-pca = prcomp(data_num_pca, scale=T)
+data_num_pca = data_num_scaled[-1]
+pca = prcomp(data_num_pca, scale=F)
 summary(pca)
 
 # EIGENVALUES!
@@ -149,33 +167,35 @@ barplot(pca$rotation[,1], las=2, col="darkblue")
 # How much does each variable contribute?
 fviz_contrib(pca, choice = "var", axes = 1)
 
+# Color with health in case we can find something interesting
 # First PC
 plot_data_1 = data.frame(PC1 = pca$x[,1], Target = data$mdu)
-ggplot(plot_data_1, aes(x = PC1, y = Target)) +
+ggplot(plot_data_1, aes(x = PC1, y = Target, color = data$health)) +
   geom_point() +
   labs(x = "Principal Component 1",
-       y = "mdu") +
+       y = "mdu",
+       color = "Health") +
   theme_minimal()
 
 # Second PC
 plot_data_2 = data.frame(PC2 = pca$x[,2], Target = data$mdu)
-ggplot(plot_data_2, aes(x = PC2, y = Target)) +
+ggplot(plot_data_2, aes(x = PC2, y = Target, color = data$health)) +
   geom_point() +
   labs(x = "Principal Component 2",
-       y = "mdu") +
+       y = "mdu",
+       color = "Health") +
   theme_minimal()
 
 # Third PC
 plot_data_3 = data.frame(PC3 = pca$x[,3], Target = data$mdu)
-ggplot(plot_data_3, aes(x = PC3, y = Target)) +
+ggplot(plot_data_3, aes(x = PC3, y = Target, color = data$health)) +
   geom_point() +
   labs(x = "Principal Component 3",
-       y = "mdu") +
+       y = "mdu",
+       color = "Health") +
   theme_minimal()
 
 
-# Scale
-data_num_scaled = scale(data_num)
 cor(data_num_scaled)
 data_num_fa = data_num_scaled[,-1]
 # Not too correlated, so factor analysis might not work that well, but we still try it!
@@ -183,7 +203,7 @@ data_num_fa = data_num_scaled[,-1]
 fa_2 = factanal(data_num_fa, 2, rotation = "varimax", scores = "Bartlett")
 fa_2
 loadings(fa_2)
-# 0.4 cumulative, not much...
+# 0.286 cumulative, not much...
 # We try 3 factors
 fa_3 = factanal(data_num_fa, 3, rotation = "varimax", scores = "Bartlett")
 fa_3
@@ -192,9 +212,18 @@ loadings(fa_3)
 fa_4 = factanal(data_num_fa, 4, rotation = "varimax", scores = "Bartlett")
 fa_4
 loadings(fa_4)
-# Not a big difference, we try sticking with 3
+# A bit better...
+fa_5 = factanal(data_num_fa, 5, rotation = "varimax", scores = "Bartlett")
+fa_5
+loadings(fa_5)
+# Not quite half
+fa_6 = factanal(data_num_fa, 6, rotation = "varimax", scores = "Bartlett")
+fa_6
+loadings(fa_6)
+# Now we have around 0.55
 
-# Observe the 3 factors
+
+# Let us stick with 3 for simplicity. Observe the 3 factors:
 par(mfrow=c(3,1))
 barplot(fa_3$loadings[,1], names=F, las=2, col="darkblue", ylim = c(-1, 1))
 barplot(fa_3$loadings[,2], names=F, las=2, col="darkblue", ylim = c(-1, 1))
@@ -203,3 +232,62 @@ barplot(fa_3$loadings[,3], las=2, col="darkblue", ylim = c(-1, 1))
 # FACTOR INTERPRETATION
 # 
 
+
+# Clustering
+
+# First with kmeans
+# How many clusters?
+fviz_nbclust(data_num_scaled, kmeans, method = "wss", k.max = 10)
+fviz_nbclust(data_num_scaled, kmeans, method = "silhouette", k.max = 10)
+# Seems to like 2 clusters
+
+# We can plot using the first 2 PCs (and checking health)
+fviz_pca_ind(pca, geom = "point", habillage = data$health)
+
+# Try with 2 (like silhouette recommends)
+fit.kmeans_1 = kmeans(data_num_scaled, centers = 2, nstart = 25)
+fit.kmeans_1$size
+fit.kmeans_1$centers[1:2,]
+fviz_cluster(fit.kmeans_1, data = data_num_scaled, geom = "point", ellipse.type = "norm",
+             main = "K-means for k = 4")
+# Try with 4 (like levels of health)
+fit.kmeans_2 = kmeans(data_num_scaled, centers = 4, nstart = 25)
+fit.kmeans_2$size
+fit.kmeans_2$centers[1:4,]
+fviz_cluster(fit.kmeans_2, data = data_num_scaled, geom = "point", ellipse.type = "norm",
+             main = "K-means for k = 4")
+
+# Now with PAM
+# Because PAM takes too long, we take a sample
+n = nrow(data_num_scaled)
+n_sample = 0.1*n
+ind = sample(1:n, n_sample)
+data_sample = data_num_scaled[ind, ]
+
+# How many clusters?
+fviz_nbclust(data_sample, pam, method = "silhouette", k.max = 10)
+
+# We have two options for PAM:
+fit.pam_1 = eclust(data_sample, FUNcluster="pam", stand = TRUE, k=2,
+                 graph = F, nstart=25)
+fviz_cluster(fit.pam_1, geom="point", main="Clusters with PAM (2)", ellipse.type = "norm", star.plot=F)
+
+fit.pam_1_prima = pam(data_num_scaled, k = 2)
+fviz_cluster(fit.pam_1_prima, geom = "point", data = data_num_scaled, main = "Clusters with PAM' (2)")
+
+# They aren't exactly the same, but the second method is much faster, so we continue using that one
+
+fit.pam_2 = pam(data_num_scaled, k = 4)
+fviz_cluster(fit.pam, geom = "point", data = data_num_scaled, main = "Cluster with PAM (4)")
+
+# How close are the two forms of clustering?
+adjustedRandIndex(fit.kmeans_2$cluster, fit.pam_2$clustering) # Goes from -1 to 1
+# It isn't that similar, but it isn't too different either.
+
+# Now with hierarchical clustering
+distances = dist(data_sample, method="euclidean")
+hc = hclust(distances, method="ward.D2") # Ward minimizes total within-cluster variance
+hclusters = cutree(hc, 4)
+hclusters[1:10]
+fviz_dend(x = hc,
+          k = 4)
