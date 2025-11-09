@@ -249,14 +249,20 @@ fviz_screeplot(pca, addlabels = TRUE)
 
 We can probably try just taking the first three components (even if it isn't such a good representation).
 
-First component.
+First 4 component.
 ```{r}
 barplot(pca$rotation[,1], las=2, col="darkblue")
+barplot(pca$rotation[,2], las=2, col="darkblue")
+barplot(pca$rotation[,3], las=2, col="darkblue")
+barplot(pca$rotation[,4], las=2, col="darkblue")
 ```
 
-How much does each variable contribute?
+How much does each variable contribute? (another way of seeing it)
 ```{r}
 fviz_contrib(pca, choice = "var", axes = 1)
+fviz_contrib(pca, choice = "var", axes = 2)
+fviz_contrib(pca, choice = "var", axes = 3)
+fviz_contrib(pca, choice = "var", axes = 4)
 ```
 
 We color with health to look for something interesting.
@@ -293,10 +299,23 @@ ggplot(plot_data_3, aes(x = PC3, y = Target, color = data$health)) +
        color = "Health") +
   theme_minimal()
 ```
+
+####Fourth PC
+```{r}
+plot_data_4 = data.frame(PC4 = pca$x[,4], Target = data$mdu)
+ggplot(plot_data_4, aes(x = PC4, y = Target, color = data$health)) +
+  geom_point() +
+  labs(x = "Principal Component 4",
+       y = "mdu",
+       color = "Health") +
+  theme_minimal()
+```
 ```{r}
 cor(data_num_scaled)
 data_num_fa = data_num_scaled[,-1]
 ```
+
+
 Not too correlated, so factor analysis might not work that well, but we will try it!
 
 ### Factors
