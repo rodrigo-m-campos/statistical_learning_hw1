@@ -147,9 +147,9 @@ train_set = data[ind, ]
 lin_fit_1 = lm(mdu ~ ndisease, data = data)
 lin_fit_2 = lm(mdu ~ poly(linc, degree = 2), data = data)
 lin_fit_3 = lm(mdu ~ ., data=data)
-lin_fit_1
-lin_fit_2
-lin_fit_3
+summary(lin_fit_1)
+summary(lin_fit_2)
+summary(lin_fit_3)
 ```
 
 Let's make some predictions now.
