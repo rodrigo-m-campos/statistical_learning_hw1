@@ -11,6 +11,7 @@ library(bootstrap)
 library(caret)
 #data(DoctorContacts)
 data = DoctorContacts
+set.seed(123)
 
 # What are the variables?
 # mdu:  number of outpatient visits to a medical doctor
@@ -52,6 +53,14 @@ boxplot(data[, sapply(data, is.numeric)],
         main = "Outliers",
         ylab = "Values",
         col = "red")
+
+Q3 = quantile(data$mdu, 0.75)  # Third quartile
+IQR_value = IQR(data$mdu)
+upper_bound = Q3 + 1.5 * IQR_value
+# See the outliers
+data_out = data[data$mdu > upper_bound, ]
+# We remove outliers (Who goes to the doctor 40 times a year and still claims they are fine?)
+data = data[(data$mdu <= upper_bound) | (data$health != "poor"), ]
 
 # Look at correlation
 # We need numerical values ONLY
@@ -99,7 +108,7 @@ prediction3 = predict(lin_fit_3, newdata = test_set)
 mse1 = mean((prediction1 - test_set$mdu)^2)
 mse2 = mean((prediction2 - test_set$mdu)^2)
 mse3 = mean((prediction3 - test_set$mdu)^2)
-# Pretty, pretty, pretty, pretty bad...
+# Pretty, pretty, pretty, pretty bad... Unless you remove outliers.
 
 # Let us try with k-fold:
 k = 10
