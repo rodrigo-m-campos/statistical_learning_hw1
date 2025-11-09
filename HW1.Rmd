@@ -265,15 +265,14 @@ fviz_contrib(pca, choice = "var", axes = 3)
 fviz_contrib(pca, choice = "var", axes = 4)
 ```
 
-We color with health to look for something interesting.
+
 #### First PC
 ```{r}
 plot_data_1 = data.frame(PC1 = pca$x[,1], Target = data$mdu)
-ggplot(plot_data_1, aes(x = PC1, y = Target, color = data$health)) +
-  geom_point() +
+ggplot(plot_data_1, aes(x = PC1, y = Target)) +
+  geom_point(color = "green") +
   labs(x = "Principal Component 1",
-       y = "mdu",
-       color = "Health") +
+       y = "mdu") +
   theme_minimal()
 ```
 
@@ -281,33 +280,30 @@ ggplot(plot_data_1, aes(x = PC1, y = Target, color = data$health)) +
 ```{r}
 # Second PC
 plot_data_2 = data.frame(PC2 = pca$x[,2], Target = data$mdu)
-ggplot(plot_data_2, aes(x = PC2, y = Target, color = data$health)) +
-  geom_point() +
+ggplot(plot_data_2, aes(x = PC2, y = Target)) +
+  geom_point(color = "red") +
   labs(x = "Principal Component 2",
-       y = "mdu",
-       color = "Health") +
+       y = "mdu") +
   theme_minimal()
 ```
 
 ####Third PC
 ```{r}
 plot_data_3 = data.frame(PC3 = pca$x[,3], Target = data$mdu)
-ggplot(plot_data_3, aes(x = PC3, y = Target, color = data$health)) +
-  geom_point() +
+ggplot(plot_data_3, aes(x = PC3, y = Target)) +
+  geom_point(color = "blue") +
   labs(x = "Principal Component 3",
-       y = "mdu",
-       color = "Health") +
+       y = "mdu") +
   theme_minimal()
 ```
 
 ####Fourth PC
 ```{r}
 plot_data_4 = data.frame(PC4 = pca$x[,4], Target = data$mdu)
-ggplot(plot_data_4, aes(x = PC4, y = Target, color = data$health)) +
-  geom_point() +
+ggplot(plot_data_4, aes(x = PC4, y = Target)) +
+  geom_point(color = "darkblue") +
   labs(x = "Principal Component 4",
-       y = "mdu",
-       color = "Health") +
+       y = "mdu") +
   theme_minimal()
 ```
 ```{r}
@@ -378,7 +374,7 @@ fit.kmeans_1 = kmeans(data_num_scaled, centers = 2, nstart = 25)
 fit.kmeans_1$size
 fit.kmeans_1$centers[1:2,]
 fviz_cluster(fit.kmeans_1, data = data_num_scaled, geom = "point", ellipse.type = "norm",
-             main = "K-means for k = 4")
+             main = "K-means for k = 2")
 ```
 
 And with four clusters.
