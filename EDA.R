@@ -13,6 +13,7 @@ library(caret)
 data = DoctorContacts
 
 # What are the variables?
+# mdu:  number of outpatient visits to a medical doctor
 # lc:  log(coinsurance rate + 1), where coinsurance rate ranges from 0 to 100 (the percentage the patient pays).
 # idp:  Binary indicator for whether the person has an individual deductible plan. (Has to pay for going to the doctor).
 # lpi:  log(annual participation incentive payment + 1) (or 0 if no payment). (Paid to go).
@@ -39,8 +40,8 @@ any(is.na(data))
 
 summary(data)
 
+levels(data$sex)
 # Have male as 0 and female as 1
-data$sex = factor(data$sex, levels = c('male', 'female'), labels = c(0, 1))
 
 levels(data$health)
 # We can change the order
