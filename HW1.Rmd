@@ -1,0 +1,418 @@
+---
+title: "HW1"
+output: html_document
+date: "2025-11-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Homework 1
+
+We load all the necessary libraries for the homework and also the data we are going to use
+
+```{r, message=FALSE}
+library(Ecdat)
+library(ggplot2)
+#library(GGally)
+library(factoextra)
+library(cluster)
+#library(mclust)
+library(e1071)
+library(boot)
+library(bootstrap)
+library(caret)
+
+data = DoctorContacts
+set.seed(123)
+```
+
+## What are the variables?
+
+  mdu:  number of outpatient visits to a medical doctor.
+  
+  lc:  log(coinsurance rate + 1), where coinsurance rate ranges from 0 to 100 (the percentage the patient pays).
+  
+  idp:  Binary indicator for whether the person has an individual deductible plan. (Has to pay for going to the doctor).
+  
+  
+  lpi:  log(annual participation incentive payment + 1) (or 0 if no payment). (Paid to go).
+  
+  fmde:  log(max(medical deductible expenditure)) if IDP=1 and MDE > 1, else 0. How much someone must spend before insurance kicks in.
+  
+  physlim:  Binary variable indicating if the person has a physical limitation.
+  
+  ndisease:  Number of chronic diseases.
+  
+  health:  Categorical self-rated health: excellent, good, fair, poor.
+  
+  linc:  log(annual family income).
+  
+  lfam:  log(family size).
+  
+  educdec:  Years of schooling of the household head.
+  
+  age:  Exact age in years.
+  
+  sex:  sex (male/female).
+  
+  child:  Binary (TRUE if age < 18, else FALSE).
+  
+  black:  Binary (TRUE if household head is Black, else FALSE).
+
+
+### Check for NAs
+```{r}
+barplot(colMeans(is.na(data)), las=2)
+```
+```{r}
+any(is.na(data))
+```
+There are no NA's.
+
+### Data Cleaning
+```{r}
+summary(data)
+```
+```{r}
+levels(data$sex)
+# Have male as 0 and female as 1
+```
+```{r}
+levels(data$health)
+# We can change the order
+data$health = factor(data$health, levels = c("poor", "fair", "good", "excellent"))
+```
+
+### Outliers
+```{r}
+boxplot(data[, sapply(data, is.numeric)], 
+        main = "Outliers",
+        ylab = "Values",
+        col = "red")
+```
+```{r}
+Q3 = quantile(data$mdu, 0.75)  # Third quartile
+IQR_value = IQR(data$mdu)
+upper_bound = Q3 + 1.5 * IQR_value
+```
+see the outliers
+```{r}
+data_out = data[data$mdu > upper_bound, ]
+```
+We remove outliers (Who goes to the doctor 40 times a year and still claims they are fine?)
+```{r}
+data = data[(data$mdu <= upper_bound) | (data$health != "poor"), ]
+```
+
+### Correlation
+we only need numerical values
+```{r}
+data_num = data[,-c(3, 6, 8, 13, 14, 15)]
+data_num$health = as.numeric(data$health)
+data_num$physlim = as.numeric(data$physlim)
+data_num$child  = as.numeric(data$child)
+data_num$black  = as.numeric(data$black)
+data_num$sex = as.numeric(data$sex) - 1 # To get 0 and 1
+data_num$idp = as.numeric(data$idp)
+R = cor(data_num)
+#ggcorr(data_num, label = T)
+```
+It seems there are no strong correlations with mdu. Biggest one is ndisease.
+
+Check all the variable relations(mostly with mdu)
+```{r}
+pairs(data)
+```
+doesn't give many ideas. We are gonna try just looking at the numerical values
+```{r}
+featurePlot(x = data_num[-1], y = data_num$mdu,
+            plot = "scatter")
+```
+No clear correlation looking at this either. Maybe linc can be the closest to having some kind of correlation
+
+
+## Linear Models
+```{r}
+n = nrow(data)
+# Simple hold out validation
+n_train = 0.8*n
+ind = sample(1:n, n_train)
+train_set = data[ind, ]
+
+lin_fit_1 = lm(mdu ~ ndisease, data = data)
+lin_fit_2 = lm(mdu ~ poly(linc, degree = 2), data = data)
+lin_fit_3 = lm(mdu ~ ., data=data)
+lin_fit_1
+lin_fit_2
+lin_fit_3
+```
+
+Let's make some predictions now
+```{r}
+test_set = data[-ind, ]
+```
+```{r}
+prediction1 = predict(lin_fit_1, newdata = test_set)
+prediction2 = predict(lin_fit_2, newdata = test_set)
+prediction3 = predict(lin_fit_3, newdata = test_set)
+```
+We are obtaining now the MSE(Mean Squared Error) (mean(estimate-truth)^2)
+```{r}
+mse1 = mean((prediction1 - test_set$mdu)^2)
+mse2 = mean((prediction2 - test_set$mdu)^2)
+mse3 = mean((prediction3 - test_set$mdu)^2)
+```
+```{r, echo=FALSE}
+mse1
+mse2
+mse3
+```
+pretty bad results, unselld we remove outliers
+
+### K-FOLDS
+```{r}
+k = 10
+fit_n = 3
+ind = rep(1:k, n/k)
+class_vector = sample(ind)
+MSE_test = matrix(0, nrow = k, ncol = fit_n)
+for (i in 1:k) {
+  train_set = data[class_vector != i, ]
+  
+  lin_fit_1 = lm(mdu ~ ndisease, data = data)
+  lin_fit_2 = lm(mdu ~ poly(linc, degree = 2), data = data)
+  lin_fit_3 = lm(mdu ~ ., data=data)
+  
+  test_set = data[class_vector == i, ]
+  
+  # Make predictions
+  prediction1 = predict(lin_fit_1, newdata = test_set)
+  prediction2 = predict(lin_fit_2, newdata = test_set)
+  prediction3 = predict(lin_fit_3, newdata = test_set)
+  
+  MSE_test[i, 1] = mean((prediction1 - test_set$mdu)^2)
+  MSE_test[i, 2] = mean((prediction2 - test_set$mdu)^2)
+  MSE_test[i, 3] = mean((prediction3 - test_set$mdu)^2)
+}
+```
+```{r, echo=FALSE}
+apply(MSE_test, 2, mean) # Apply to columns
+```
+
+
+### Bootstrap
+does the number of visits depende on the number of diseases?
+```{r}
+B = 1000
+MeanDiff.boot = replicate(B, mean(sample(data$mdu, replace=TRUE)) - mean(sample(data$ndisease, replace=TRUE)))
+hist(MeanDiff.boot)
+sd(MeanDiff.boot)
+```
+95% percentile CI
+```{r}
+quantile(MeanDiff.boot, c(.025, .975))
+```
+doesn't seem significant
+
+we proceed to scale the data
+```{r}
+data_num_scaled = as.data.frame(scale(data_num[1:10]))
+data_num_scaled$physlim = data_num$physlim
+data_num_scaled$child = data_num$child
+data_num_scaled$black = data_num$black
+data_num_scaled$sex = data_num$sex
+data_num_scaled$idp = data_num$idp
+```
+
+## PCA
+we remove mdu
+```{r}
+data_num_pca = data_num_scaled[-1]
+pca = prcomp(data_num_pca, scale=F)
+summary(pca)
+```
+
+eigenvalues
+```{r}
+eigen(R)
+```
+
+How many components are we going to take?
+```{r}
+fviz_screeplot(pca, addlabels = TRUE)
+```
+
+First component.
+```{r}
+barplot(pca$rotation[,1], las=2, col="darkblue")
+```
+How much does each variable contribute?
+```{r}
+fviz_contrib(pca, choice = "var", axes = 1)
+```
+
+We color with health to look for something interesting
+#### First PC
+```{r}
+plot_data_1 = data.frame(PC1 = pca$x[,1], Target = data$mdu)
+ggplot(plot_data_1, aes(x = PC1, y = Target, color = data$health)) +
+  geom_point() +
+  labs(x = "Principal Component 1",
+       y = "mdu",
+       color = "Health") +
+  theme_minimal()
+```
+
+#### Second PC
+```{r}
+# Second PC
+plot_data_2 = data.frame(PC2 = pca$x[,2], Target = data$mdu)
+ggplot(plot_data_2, aes(x = PC2, y = Target, color = data$health)) +
+  geom_point() +
+  labs(x = "Principal Component 2",
+       y = "mdu",
+       color = "Health") +
+  theme_minimal()
+```
+
+
+####Third PC
+```{r}
+plot_data_3 = data.frame(PC3 = pca$x[,3], Target = data$mdu)
+ggplot(plot_data_3, aes(x = PC3, y = Target, color = data$health)) +
+  geom_point() +
+  labs(x = "Principal Component 3",
+       y = "mdu",
+       color = "Health") +
+  theme_minimal()
+```
+```{r}
+cor(data_num_scaled)
+data_num_fa = data_num_scaled[,-1]
+```
+Not too correlated, so factor analysis might not work that well, but we will try it!
+
+### Factors
+We start simple, just 2 factors (Bartlett should yield weighted least-squares)
+```{r}
+fa_2 = factanal(data_num_fa, 2, rotation = "varimax", scores = "Bartlett")
+fa_2
+loadings(fa_2)
+```
+0.286 cumulative, not much
+
+We try with three factors
+```{r}
+fa_3 = factanal(data_num_fa, 3, rotation = "varimax", scores = "Bartlett")
+fa_3
+loadings(fa_3)
+```
+Not very much. How about 4?
+```{r}
+fa_4 = factanal(data_num_fa, 4, rotation = "varimax", scores = "Bartlett")
+fa_4
+loadings(fa_4)
+```
+We are getting there, but we keep adding factors
+```{r}
+fa_5 = factanal(data_num_fa, 5, rotation = "varimax", scores = "Bartlett")
+fa_5
+loadings(fa_5)
+```
+Not yet half.
+```{r}
+fa_6 = factanal(data_num_fa, 6, rotation = "varimax", scores = "Bartlett")
+fa_6
+loadings(fa_6)
+```
+Now we are at 0.55
+
+we stick at 3 for simplicity
+```{r}
+par(mfrow=c(3,1))
+barplot(fa_3$loadings[,1], names=F, las=2, col="darkblue", ylim = c(-1, 1))
+barplot(fa_3$loadings[,2], names=F, las=2, col="darkblue", ylim = c(-1, 1))
+barplot(fa_3$loadings[,3], las=2, col="darkblue", ylim = c(-1, 1))
+```
+
+
+## Clustering
+First with k-means. We need to know how many clusters to use
+```{r}
+fviz_nbclust(data_num_scaled, kmeans, method = "wss", k.max = 10)
+fviz_nbclust(data_num_scaled, kmeans, method = "silhouette", k.max = 10)
+```
+seems like 2 clusters we are going to use
+
+
+we plot using th first two PC's and also checking health
+```{r}
+fviz_pca_ind(pca, geom = "point", habillage = data$health)
+```
+
+
+We now try with two clusters, as silhouette recommends
+```{r}
+fit.kmeans_1 = kmeans(data_num_scaled, centers = 2, nstart = 25)
+fit.kmeans_1$size
+fit.kmeans_1$centers[1:2,]
+fviz_cluster(fit.kmeans_1, data = data_num_scaled, geom = "point", ellipse.type = "norm",
+             main = "K-means for k = 4")
+```
+
+And with four clusters
+```{r}
+fit.kmeans_2 = kmeans(data_num_scaled, centers = 4, nstart = 25)
+fit.kmeans_2$size
+fit.kmeans_2$centers[1:4,]
+fviz_cluster(fit.kmeans_2, data = data_num_scaled, geom = "point", ellipse.type = "norm",
+             main = "K-means for k = 4")
+
+```
+
+#### Now with PAM
+Because PAM takes too long, we take a sample
+```{r}
+n = nrow(data_num_scaled)
+n_sample = 0.1*n
+ind = sample(1:n, n_sample)
+data_sample = data_num_scaled[ind, ]
+```
+How many clusters
+```{r}
+fviz_nbclust(data_sample, pam, method = "silhouette", k.max = 10)
+```
+There are two options for PAM
+```{r}
+fit.pam_1 = eclust(data_sample, FUNcluster="pam", stand = TRUE, k=2,
+                 graph = F, nstart=25)
+fviz_cluster(fit.pam_1, geom="point", main="Clusters with PAM (2)", ellipse.type = "norm", star.plot=F)
+
+fit.pam_1_prima = pam(data_num_scaled, k = 2)
+fviz_cluster(fit.pam_1_prima, geom = "point", data = data_num_scaled, main = "Clusters with PAM' (2)")
+
+```
+They aren't exactly the same, but the second method is much faster, so we continue using that one
+
+```{r}
+fit.pam_2 = pam(data_num_scaled, k = 4)
+fviz_cluster(fit.pam, geom = "point", data = data_num_scaled, main = "Cluster with PAM (4)")
+```
+
+So how close are the two forms of clustering?
+```{r}
+adjustedRandIndex(fit.kmeans_2$cluster, fit.pam_2$clustering)
+```
+It isn't that similar, but it isn't too different either.
+
+we now use hierachical clustering
+```{r}
+distances = dist(data_sample, method="euclidean")
+hc = hclust(distances, method="ward.D2") # Ward minimizes total within-cluster variance
+hclusters = cutree(hc, 4)
+hclusters[1:10]
+fviz_dend(x = hc,
+          k = 4)
+```
